@@ -3,6 +3,9 @@
  * Service which can be configured to listen for triggers from a provider.
  * The Provider will store, invoke, and POST whisk events appropriately.
  */
+
+require('dotenv').config();
+
 var http = require('http');
 var express = require('express');
 var request = require('request');
@@ -21,7 +24,7 @@ var constants = require('./lib/constants.js');
 var app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.set('port', process.env.PORT || 8080);
+app.set('port', process.env.PORT || 3002);
 
 // TODO: Setup a proper Transaction ID
 var tid = "??";
@@ -54,19 +57,19 @@ var databaseName = dbPrefix + constants.TRIGGER_DB_SUFFIX;
 
 // Create the Provider Server
 var server = http.createServer(app);
-server.listen(app.get('port'), function(){
-    logger.info(tid, 'server.listen', 'Express server listening on port ' + app.get('port'));
+server.listen(app.get('port'), function () {
+  logger.info(tid, 'server.listen', 'Express server listening on port ' + app.get('port'));
 });
 
-function createDatabase (nanop) {
+function createDatabase(nanop) {
 
   if (nanop !== null) {
-    nanop.db.create(databaseName, function(err, body, header) {
-        if (!err) {
-          logger.info(tid, databaseName, ' database for triggers was created.');
-        } else {
-          logger.info(tid, databaseName, err);
-        }
+    nanop.db.create(databaseName, function (err, body, header) {
+      if (!err) {
+        logger.info(tid, databaseName, ' database for triggers was created.');
+      } else {
+        logger.info(tid, databaseName, err);
+      }
     });
     var chDb = nanop.db.use(databaseName);
     return chDb;
@@ -76,17 +79,17 @@ function createDatabase (nanop) {
 
 }
 
-function createTriggerDb () {
+function createTriggerDb() {
 
   var nanop = null;
 
   // no need for a promise here, but leaving code inplace until we prove out the question of cookie usage
-  var promise = new Promise(function(resolve, reject) {
+  var promise = new Promise(function (resolve, reject) {
 
     nanop = require('nano')(dbProtocol + '://' + dbUsername + ':' + dbPassword + '@' + dbHost);
-    logger.info('url is ' +  dbProtocol + '://' + dbUsername + ':' + dbPassword + '@' + dbHost);
-    resolve(createDatabase (nanop));
-    
+    logger.info('url is ' + dbProtocol + '://' + dbUsername + ':' + dbPassword + '@' + dbHost);
+    resolve(createDatabase(nanop));
+
   });
 
   return promise;
@@ -95,46 +98,91 @@ function createTriggerDb () {
 
 // Initialize the Provider Server
 function init(server) {
-    if (server !== null) {
-        var address = server.address();
-        if (address === null) {
-            logger.error(tid, 'init', 'Error initializing server. Perhaps port is already in use.');
-            process.exit(-1);
-        }
+  if (server !== null) {
+    var address = server.address();
+    if (address === null) {
+      logger.error(tid, 'init', 'Error initializing server. Perhaps port is already in use.');
+      process.exit(-1);
+    }
+  }
+
+  ///
+  var triggerDBPromise = createTriggerDb();
+  triggerDBPromise.then(function (nanoDb) {
+
+    logger.info(tid, 'init', 'trigger storage database details: ', nanoDb);
+
+    var providerUtils = new ProviderUtils(tid, logger, app, retriesBeforeDelete, nanoDb, triggerFireLimit, routerHost);
+    var providerRAS = new ProviderRAS(tid, logger, providerUtils);
+    var providerHealth = new ProviderHealth(tid, logger, providerUtils);
+    var providerUpdate = new ProviderUpdate(tid, logger, providerUtils);
+    var providerCreate = new ProviderCreate(tid, logger, providerUtils);
+    var providerDelete = new ProviderDelete(tid, logger, providerUtils);
+
+    // RAS Endpoint
+    app.get(providerRAS.endPoint, providerRAS.ras);
+
+    // Health Endpoint
+    app.get(providerHealth.endPoint, providerHealth.health);
+
+    // Endpoint for Update OR Create a Trigger
+    app.put(providerUpdate.endPoint, providerUtils.authorize, providerUpdate.update);
+
+    // Endpoint for Creating a new Trigger
+    app.post(providerCreate.endPoint, providerUtils.authorize, providerCreate.create);
+
+    // Endpoint for Deleting an existing Trigger.
+    app.delete(providerDelete.endPoint, providerUtils.authorize, providerDelete.delete);
+
+    app.get('/deactivate',function(req,res){
+      console.log('deactivating');
+      providerUtils.active = false;
+      res.status(200).json({ ok: 'provider is now deactivated '});
+    });
+
+   
+      //providerUtils.initAllTriggers();
+
+
+    
+
+    if (process.env.slaverole) {
+      setInterval(function () {
+        request(process.env.master+'/ping', function (error, response, body) {
+          if (!error && response.statusCode == 200) {
+            console.log(body);
+          } else {
+            console.log('master died taking over');
+            providerUtils.active = true;
+          }
+        });
+      }, 15000);
+      providerUtils.initAllTriggers();
+    } else {
+      console.log('Im master,  let me check on slave');
+      request(process.env.slave+'/ping', function (error, response, body) {
+          if (!error && response.statusCode == 200) {
+            console.log('lets tell slave Im taking over now');
+            providerUtils.active = false;
+            providerUtils.initAllTriggers();
+            request(process.env.slave+'/deactivate',function (error, response, body) {
+               providerUtils.active = true;  
+            });
+          } else {
+            console.log('slave not around come up as normal');
+            providerUtils.initAllTriggers();
+          }
+        });
     }
 
-    ///
-    var triggerDBPromise = createTriggerDb();
-    triggerDBPromise.then(function (nanoDb) {
 
-      logger.info(tid, 'init', 'trigger storage database details: ', nanoDb);
+  }, function (err) {
+    logger.info(tid, 'init', 'found an error creating database: ', err);
+  });
 
-      var providerUtils = new ProviderUtils (tid, logger, app, retriesBeforeDelete, nanoDb, triggerFireLimit, routerHost);
-      var providerRAS = new ProviderRAS (tid, logger, providerUtils);
-      var providerHealth = new ProviderHealth (tid, logger, providerUtils);
-      var providerUpdate = new ProviderUpdate (tid, logger, providerUtils);
-      var providerCreate = new ProviderCreate (tid, logger, providerUtils);
-      var providerDelete = new ProviderDelete (tid, logger, providerUtils);
 
-      // RAS Endpoint
-      app.get(providerRAS.endPoint, providerRAS.ras);
 
-      // Health Endpoint
-      app.get(providerHealth.endPoint, providerHealth.health);
 
-      // Endpoint for Update OR Create a Trigger
-      app.put(providerUpdate.endPoint, providerUtils.authorize, providerUpdate.update);
-
-      // Endpoint for Creating a new Trigger
-      app.post(providerCreate.endPoint, providerUtils.authorize, providerCreate.create);
-
-      // Endpoint for Deleting an existing Trigger.
-      app.delete(providerDelete.endPoint, providerUtils.authorize, providerDelete.delete);
-
-      providerUtils.initAllTriggers();
-    }, function(err) {
-      logger.info(tid, 'init', 'found an error creating database: ', err);
-    });
 
 }
 

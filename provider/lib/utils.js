@@ -20,6 +20,10 @@ module.exports = function(
     this.triggerDB = triggerDB;
     this.triggersLimit = triggersLimit;
     this.routerHost = routerHost;
+    this.active = true;
+    if(process.env.slaverole){
+        this.active = false;
+    }
 
     // Log HTTP Requests
     app.use(function(req, res, next) {
@@ -43,7 +47,12 @@ module.exports = function(
             function onTick() {
                 var triggerHandle = that.triggers[triggerIdentifier];
                 if(triggerHandle && triggerHandle.triggersLeft > 0 && triggerHandle.retriesLeft > 0) {
-                    that.fireTrigger(newTrigger.namespace, newTrigger.name, newTrigger.payload, newTrigger.apikey);
+                    if(that.active){
+                        that.fireTrigger(newTrigger.namespace, newTrigger.name, newTrigger.payload, newTrigger.apikey);
+                    } else {
+                        console.log('trigger firing inactive');
+                    }
+                        
                 }
             }
         );
@@ -64,7 +73,8 @@ module.exports = function(
         var method = 'fireTrigger';
         var triggerIdentifier = that.getTriggerIdentifier(apikey, namespace, name);
         var routerHost = process.env.ROUTER_HOST;
-        var host = "https://" + routerHost + ":443";
+        //var host = "https://" + routerHost + ":443";
+        var host = 'http://localhost:3000';
         var keyParts = apikey.split(':');
         var triggerHandle = that.triggers[triggerIdentifier];
 
@@ -85,10 +95,12 @@ module.exports = function(
                     triggerHandle.triggersLeft++; // setting the counter back to where it used to be
                     logger.warn(tid, method, 'there was an error invoking', triggerIdentifier, err);
                 }
+                
                 else {
                     triggerHandle.retriesLeft = retriesBeforeDelete; // reset retry counter
                     logger.info(tid, method, 'fired', triggerIdentifier, 'with', payload, triggerHandle.triggersLeft, 'triggers left');
                 }
+                /*
 
                 if(triggerHandle.triggersLeft === 0 || triggerHandle.retriesLeft === 0) {
                     if(triggerHandle.triggersLeft === 0) {
@@ -99,6 +111,7 @@ module.exports = function(
                     }
                     that.deleteTrigger(triggerHandle.namespace, triggerHandle.name, triggerHandle.apikey);
                 }
+                */
             }
             else {
                 logger.info(tid, method, 'trigger', triggerIdentifier, 'was deleted between invocations');

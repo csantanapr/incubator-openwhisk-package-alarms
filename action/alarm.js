@@ -27,6 +27,21 @@ function main(msg){
             maxTriggers: msg.maxTriggers || 1000
         };
 
+        var action = require('./broker');
+
+        action({
+            lifecycleEvent: lifecycleEvent,
+            trigger: newTrigger,
+            auth: {
+                user: msg.authKey.split(':')[0],
+                pass: msg.authKey.split(':')[1]
+            }
+        }).then(function(){
+            console.log('alarm: resolve');
+            resolve();
+        });
+
+        /*
         request({
             method: "POST",
             uri: 'http://' + msg.package_endpoint + '/triggers',
@@ -52,6 +67,7 @@ function main(msg){
                 }
             }
         });
+        */
       });
     }
 
@@ -100,4 +116,8 @@ function main(msg){
         }
         return parsed;
     }
+}
+
+if (require.main !== module) {
+  module.exports = main;
 }
