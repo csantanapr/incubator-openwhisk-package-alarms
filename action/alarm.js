@@ -1,66 +1,63 @@
-// jshint esversion: 6
+// jshint esversion: 6, node: true
+'use strict';
 var request = require('request');
 var nano = require('nano');
 
-function main(msg) {
-  console.log("alarm: ", msg);
+function main({
+  mgmtdbUrl: mgmtdbUrl = 'http://localhost:5498',
+  mgmtdbName: mgmtdbName = 'triggers',
+  lifecycleEvent: lifecycleEvent = 'CREATE',
+  triggerName: triggerName,
+  cron: cron,
+  trigger_payload : trigger_payload = {},
+  maxTriggers: maxTriggers = 1000000,
+  authKey: authKey
+  
+}) {
+  console.log("alarm: ", arguments);
 
   var db = nano(mgmtdbUrl).db.use(mgmtdbName);
 
   // whisk trigger in payload
-  var trigger = parseQName(msg.triggerName);
+  var trigger = parseQName(triggerName);
 
   // for creation -> CREATE (default)
   // for deletion -> DELETE
   // for pause -> PAUSE
   // for resume -> RESUME
-  var lifecycleEvent = msg.lifecycleEvent || 'CREATE';
+
+  var triggerId = getTriggerIdentifier(authKey, trigger.namespace, trigger.name );
 
   if (lifecycleEvent === 'CREATE') {
-    // CREATE A PERIODIC PROVIDER INSTANCE AT PERIODIC NODE.JS AND GIVE THE NEWLY CREATED TRIGGER
+    // Insert the new Trigger into the DB
     return new Promise(function (resolve, reject) {
-      if (typeof msg.trigger_payload === 'string') {
-        msg.trigger_payload = { payload: msg.trigger_payload };
+      if (typeof trigger_payload === 'string') {
+        trigger_payload = { payload: trigger_payload };
       }
 
       var newTrigger = {
         name: trigger.name,
         namespace: trigger.namespace,
-        cron: msg.cron,
-        payload: msg.trigger_payload || {},
-        maxTriggers: msg.maxTriggers || 1000
+        cron: cron,
+        payload: trigger_payload,
+        maxTriggers: maxTriggers,
+        authKey: authKey
       };
+      
 
-      request({
-        method: "POST",
-        uri: 'http://' + msg.package_endpoint + '/triggers',
-        json: newTrigger,
-        auth: {
-          user: msg.authKey.split(':')[0],
-          pass: msg.authKey.split(':')[1]
-        }
-      }, function (err, res, body) {
-        console.log('alarm: done http request');
-        if (!err && res.statusCode === 200) {
-          console.log(body);
-          resolve();
-        }
-        else {
-          if (res) {
-            console.log('alarm: Error invoking whisk action:', res.statusCode, body);
-            reject(body.error);
-          }
-          else {
-            console.log('alarm: Error invoking whisk action:', err);
-            reject();
-          }
-        }
+      getWorkerId(db).then((worker) => {
+        newTrigger.worker = worker;
+        return createTrigger(db, newTrigger, triggerId);
+      }).then((res) => {
+        resolve(res);
+      }).catch((err) => {
+        reject(err);
       });
     });
   }
 
   if (lifecycleEvent === 'DELETE') {
-    // DELETE TRIGGER AT NODE.JS SERVICE
+    // DELETE Trigger from the DB
     return new Promise(function (resolve, reject) {
       request({
         method: "DELETE",
@@ -105,6 +102,54 @@ function main(msg) {
     return parsed;
   }
 
+  function getWorkerId(db) {
+    var ddname = 'triggers';
+    var viewname = 'by_worker';
 
+    return new Promise((resolve, reject) => {
+      db.view(ddname, viewname, { reduce: true, group: true }, function (err, body) {
+        if (!err) {
+          resolve('worker2');
+          
+          if (body.rows.length > 0) {
+            //sort by worker ascending 
+            body.rows.sort((a, b) => {
+              return a.value > b.value;
+            });
+            //pick the worker handling less triggers
+            resolve(body.rows[0].key);
+          } else {
+            resolve('worker2');
+          }
+        } else {
+          reject(err);
+        }
+      });
+    });
+  }
+
+  function createTrigger(db, trigger, id) {
+    return new Promise((resolve, reject) => {
+      db.insert(trigger, id, (err, body) => {
+        if (!err) {
+          console.log('success ', body);
+          resolve({ response: body });
+        } else {
+          console.error('error ', err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+
+  function getTriggerIdentifier(apikey, namespace, name) {
+        return apikey + '/' + namespace + '/' + name;
+  }
+
+}
+
+if (require.main !== module) {
+  module.exports = main;
 }
 
