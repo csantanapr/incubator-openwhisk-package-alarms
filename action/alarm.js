@@ -9,13 +9,11 @@ function main({
   lifecycleEvent: lifecycleEvent = 'CREATE',
   triggerName: triggerName,
   cron: cron,
-  trigger_payload : trigger_payload = {},
+  trigger_payload: trigger_payload = {},
   maxTriggers: maxTriggers = 1000000,
   authKey: authKey
-  
-}) {
-  console.log("alarm: ", arguments);
 
+}) {
   var db = nano(mgmtdbUrl).db.use(mgmtdbName);
 
   // whisk trigger in payload
@@ -26,7 +24,7 @@ function main({
   // for pause -> PAUSE
   // for resume -> RESUME
 
-  var triggerId = getTriggerIdentifier(authKey, trigger.namespace, trigger.name );
+  var triggerId = getTriggerIdentifier(authKey, trigger.namespace, trigger.name);
 
   if (lifecycleEvent === 'CREATE') {
     // Insert the new Trigger into the DB
@@ -43,47 +41,33 @@ function main({
         maxTriggers: maxTriggers,
         authKey: authKey
       };
-      
 
-      getWorkerId(db).then((worker) => {
-        newTrigger.worker = worker;
-        return createTrigger(db, newTrigger, triggerId);
-      }).then((res) => {
-        resolve(res);
-      }).catch((err) => {
-        reject(err);
-      });
+
+      getWorkerId(db)
+        .then((worker) => {
+          newTrigger.worker = worker;
+          return createTrigger(db, newTrigger, triggerId);
+        }).then((res) => {
+          resolve(res);
+        }).catch((err) => {
+          reject(err);
+        });
+        
     });
   }
 
   if (lifecycleEvent === 'DELETE') {
     // DELETE Trigger from the DB
     return new Promise(function (resolve, reject) {
-      request({
-        method: "DELETE",
-        uri: 'http://' + msg.package_endpoint + '/triggers/' + trigger.namespace + '/' + trigger.name,
-        json: true,
-        auth: {
-          user: msg.authKey.split(':')[0],
-          pass: msg.authKey.split(':')[1]
-        }
-      }, function (err, res, body) {
-        console.log('alarm: done http request');
-        if (!err && (res.statusCode === 200 || res.statusCode === 404)) {
-          console.log(body);
-          resolve();
-        }
-        else {
-          if (res) {
-            console.log('alarm: Error invoking whisk action:', res.statusCode, body);
-            reject(body.error);
-          }
-          else {
-            console.log('alarm: Error invoking whisk action:', err);
-            reject();
-          }
-        }
-      });
+     
+     getTrigger(db, triggerId).then((doc)=>{
+       return deleteTrigger(db, doc._id, doc._rev);
+     }).then((res)=>{
+       resolve(res);
+     }).catch((err)=>{
+       reject(err);
+     });
+
     });
   }
 
@@ -110,7 +94,7 @@ function main({
       db.view(ddname, viewname, { reduce: true, group: true }, function (err, body) {
         if (!err) {
           resolve('worker2');
-          
+
           if (body.rows.length > 0) {
             //sort by worker ascending 
             body.rows.sort((a, b) => {
@@ -128,9 +112,14 @@ function main({
     });
   }
 
-  function createTrigger(db, trigger, id) {
+  function getTriggerIdentifier(apikey, namespace, name) {
+    return apikey + '/' + namespace + '/' + name;
+  }
+
+  function createTrigger(db, trigger, triggerId) {
+
     return new Promise((resolve, reject) => {
-      db.insert(trigger, id, (err, body) => {
+      db.insert(trigger, triggerId, (err, body) => {
         if (!err) {
           console.log('success ', body);
           resolve({ response: body });
@@ -142,10 +131,37 @@ function main({
     });
   }
 
-
-  function getTriggerIdentifier(apikey, namespace, name) {
-        return apikey + '/' + namespace + '/' + name;
+  function getTrigger(db, triggerId) {
+    return new Promise((resolve, reject) => {
+      db.get(triggerId, (err, body) => {
+        if (!err) {
+          console.log('success ', body);
+          resolve(body);
+        } else {
+          console.error('error ', err);
+          reject(err);
+        }
+      });
+    });
   }
+
+  function deleteTrigger(db, docname, rev) {
+    return new Promise((resolve, reject) => {
+      db.destroy(docname, rev, (err, body) => {
+        if (!err) {
+          console.log('success ', body);
+          resolve({ response: body });
+        } else {
+          console.error('error ', err);
+          reject(err);
+        }
+      });
+    });
+
+  }
+
+
+
 
 }
 
