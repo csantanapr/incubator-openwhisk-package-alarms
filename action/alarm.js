@@ -93,8 +93,6 @@ function main({
     return new Promise((resolve, reject) => {
       db.view(ddname, viewname, { reduce: true, group: true }, function (err, body) {
         if (!err) {
-          resolve('worker2');
-
           if (body.rows.length > 0) {
             //sort by worker ascending 
             body.rows.sort((a, b) => {
@@ -103,7 +101,7 @@ function main({
             //pick the worker handling less triggers
             resolve(body.rows[0].key);
           } else {
-            resolve('worker2');
+            resolve('worker1');
           }
         } else {
           reject(err);

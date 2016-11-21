@@ -19,9 +19,7 @@ function create_views(dbname) {
     map: `function(doc){
       if(doc.worker){
         emit(doc.worker,doc);
-      } else {
-        emit('worker1',doc);
-      }
+      } 
     }
     `,
     reduce: '_count'
