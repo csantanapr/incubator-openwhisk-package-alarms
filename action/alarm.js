@@ -52,21 +52,21 @@ function main({
         }).catch((err) => {
           reject(err);
         });
-        
+
     });
   }
 
   if (lifecycleEvent === 'DELETE') {
     // DELETE Trigger from the DB
     return new Promise(function (resolve, reject) {
-     
-     getTrigger(db, triggerId).then((doc)=>{
-       return deleteTrigger(db, doc._id, doc._rev);
-     }).then((res)=>{
-       resolve(res);
-     }).catch((err)=>{
-       reject(err);
-     });
+
+      getTrigger(db, triggerId).then((doc) => {
+        return deleteTrigger(db, doc._id, doc._rev);
+      }).then((res) => {
+        resolve(res);
+      }).catch((err) => {
+        reject(err);
+      });
 
     });
   }
@@ -157,9 +157,6 @@ function main({
     });
 
   }
-
-
-
 
 }
 
