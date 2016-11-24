@@ -3,7 +3,7 @@ require('dotenv').config();
 
 var DB_URL = process.env.DB_URL;
 var nano = require('nano')(DB_URL);
-var dbname = 'triggers';
+var dbname = 'whisk_alarmservice';
 var ddname = '_design/triggers';
 
 nano.db.destroy(dbname, function () {

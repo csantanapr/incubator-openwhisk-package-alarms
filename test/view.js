@@ -2,7 +2,7 @@ require('dotenv').config();
 
 var DB_URL = process.env.DB_URL;
 var nano = require('nano')(DB_URL);
-var db = nano.use('triggers');
+var db = nano.use('whisk_alarmservice');
 var ddname = 'triggers';
 var viewname = 'by_worker';
 

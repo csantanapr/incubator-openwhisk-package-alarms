@@ -48,9 +48,7 @@ var dbHost = process.env.DB_HOST;
 var dbPort = process.env.DB_PORT;
 var dbProtocol = process.env.DB_PROTOCOL;
 var dbPrefix = process.env.DB_PREFIX;
-//var databaseName = dbPrefix + constants.TRIGGER_DB_SUFFIX;
-
-var databaseName = 'triggers';
+var databaseName = dbPrefix + constants.TRIGGER_DB_SUFFIX;
 
 // Create the Provider Server
 var server = http.createServer(app);

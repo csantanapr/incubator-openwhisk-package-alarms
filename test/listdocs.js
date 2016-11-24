@@ -5,7 +5,7 @@ var DB_URL = process.env.DB_URL;
 
 var nano = require('nano')(DB_URL);
 
-var triggers = nano.use('triggers');
+var triggers = nano.use('whisk_alarmservice');
 
 triggers.list({include_docs: true},function(err, body) {
   if (!err) {

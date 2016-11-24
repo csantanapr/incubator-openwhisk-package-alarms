@@ -5,7 +5,7 @@ var nano = require('nano');
 
 function main({
   mgmtdbUrl: mgmtdbUrl = 'http://localhost:5498',
-  mgmtdbName: mgmtdbName = 'triggers',
+  mgmtdbName: mgmtdbName = 'whisk_alarmservice',
   lifecycleEvent: lifecycleEvent = 'CREATE',
   triggerName: triggerName,
   cron: cron,
