@@ -1,3 +1,4 @@
+//jshint esversion: 6
 require('dotenv').config();
 
 var DB_URL = process.env.DB_URL;

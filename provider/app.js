@@ -12,13 +12,12 @@ var http = require('http');
 var express = require('express');
 var request = require('request');
 var bodyParser = require('body-parser');
+var nano = require('nano');
 var logger = require('./Logger');
 
 var ProviderUtils = require('./lib/utils.js');
 var ProviderHealth = require('./lib/health.js');
 var ProviderRAS = require('./lib/ras.js');
-var ProviderCreate = require('./lib/create.js');
-var ProviderDelete = require('./lib/delete.js');
 var constants = require('./lib/constants.js');
 
 // Initialize the Express Application
@@ -55,79 +54,38 @@ var databaseName = 'triggers';
 
 // Create the Provider Server
 var server = http.createServer(app);
-server.listen(app.get('port'), function(){
-    logger.info(tid, 'server.listen', 'Express server listening on port ' + app.get('port'));
+server.listen(app.get('port'), function () {
+  logger.info(tid, 'server.listen', 'Express server listening on port ' + app.get('port'));
 });
 
-function createDatabase (nanop) {
-
-  logger.info(tid, 'createDatabase', 'creating the trigger database');
-  if (nanop !== null) {
-    nanop.db.create(databaseName, function(err, body, header) {
-        if (!err) {
-          logger.info(tid, databaseName, ' database for triggers was created.');
-        } else {
-          logger.info(tid, databaseName, 'failed to create the trigger database.  it might already exist ',err);
-        }
-    });
-    var chDb = nanop.db.use(databaseName);
-    return chDb;
-  } else {
-    logger.info(tid, databaseName, 'failed to create the trigger database.  nano provider did not get created.  check db URL: ' + dbHost);
-    return null;
-  }
-
-}
-
-function createTriggerDb () {
-
-  logger.info('url is ' +  dbProtocol + '://' + dbUsername + ':' + dbPassword + '@' + dbHost);
-  var nanop = require('nano')(dbProtocol + '://' + dbUsername + ':' + dbPassword + '@' + dbHost);
-
-  return createDatabase (nanop);
-
-}
 
 // Initialize the Provider Server
 function init(server) {
 
-    if (server !== null) {
-        var address = server.address();
-        if (address === null) {
-            logger.error(tid, 'init', 'Error initializing server. Perhaps port is already in use.');
-            process.exit(-1);
-        }
+  if (server !== null) {
+    var address = server.address();
+    if (address === null) {
+      logger.error(tid, 'init', 'Error initializing server. Perhaps port is already in use.');
+      process.exit(-1);
     }
+  }
 
-    ///
-    var nanoDb = createTriggerDb();
-    if (nanoDb === null) {
-    	logger.error(tid, 'init', 'found an error creating database: ', err);
-    } else {
+  var nanoDb = nano(dbProtocol + '://' + dbUsername + ':' + dbPassword + '@' + dbHost).use(databaseName);
 
-      logger.info(tid, 'init', 'trigger storage database details: ', nanoDb);
 
-      var providerUtils = new ProviderUtils (tid, logger, app, retriesBeforeDelete, nanoDb, routerHost);
-      var providerRAS = new ProviderRAS (tid, logger, providerUtils);
-      var providerHealth = new ProviderHealth (tid, logger, providerUtils);
-      var providerCreate = new ProviderCreate (tid, logger, providerUtils);
-      var providerDelete = new ProviderDelete (tid, logger, providerUtils);
+  logger.info(tid, 'init', 'trigger storage database details: ', nanoDb);
 
-      // RAS Endpoint
-      app.get(providerRAS.endPoint, providerRAS.ras);
+  var providerUtils = new ProviderUtils(tid, logger, app, retriesBeforeDelete, nanoDb, routerHost);
+  var providerRAS = new ProviderRAS(tid, logger, providerUtils);
+  var providerHealth = new ProviderHealth(tid, logger, providerUtils);
 
-      // Health Endpoint
-      app.get(providerHealth.endPoint, providerHealth.health);
+  // RAS Endpoint
+  app.get(providerRAS.endPoint, providerRAS.ras);
 
-      // Endpoint for Creating a new Trigger
-      app.post(providerCreate.endPoint, providerUtils.authorize, providerCreate.create);
+  // Health Endpoint
+  app.get(providerHealth.endPoint, providerHealth.health);
 
-      // Endpoint for Deleting an existing Trigger.
-      app.delete(providerDelete.endPoint, providerUtils.authorize, providerDelete.delete);
-
-      providerUtils.initAllTriggers();
-
-    }
+  providerUtils.initAllTriggers();
 
 }
 
