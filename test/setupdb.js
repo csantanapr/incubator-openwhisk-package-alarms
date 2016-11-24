@@ -16,14 +16,16 @@ nano.db.destroy(dbname, function () {
 function create_views(dbname) {
   var db = nano.use(dbname);
   var by_worker = {
-    map: `function(doc){
+    map: function(doc){
       if(doc.worker){
         emit(doc.worker,doc);
       } 
-    }
-    `,
+    }.toString(),
     reduce: '_count'
   };
+  var by_worker_filter = function(doc, req){
+    return doc._deleted || doc.worker === req.query.worker;
+  }.toString();
 
   db.get(ddname, function (e, b) {
     if (e) {
@@ -31,6 +33,9 @@ function create_views(dbname) {
       db.insert({
         views: {
           by_worker: by_worker
+        },
+        filters: {
+          by_worker: by_worker_filter
         }
       }, ddname, function (e, b) {
         console.log(e, b);
@@ -46,3 +51,4 @@ function create_views(dbname) {
   });
 
 }
+

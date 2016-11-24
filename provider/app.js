@@ -1,8 +1,13 @@
+//jshint esversion: 6, node: true
 'use strict';
 /**
  * Service which can be configured to listen for triggers from a provider.
  * The Provider will store, invoke, and POST whisk events appropriately.
  */
+
+//DEVMODE
+require('dotenv').config();
+
 var http = require('http');
 var express = require('express');
 var request = require('request');
@@ -44,7 +49,9 @@ var dbHost = process.env.DB_HOST;
 var dbPort = process.env.DB_PORT;
 var dbProtocol = process.env.DB_PROTOCOL;
 var dbPrefix = process.env.DB_PREFIX;
-var databaseName = dbPrefix + constants.TRIGGER_DB_SUFFIX;
+//var databaseName = dbPrefix + constants.TRIGGER_DB_SUFFIX;
+
+var databaseName = 'triggers';
 
 // Create the Provider Server
 var server = http.createServer(app);

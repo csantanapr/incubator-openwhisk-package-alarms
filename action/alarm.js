@@ -11,7 +11,7 @@ function main({
   cron: cron,
   trigger_payload: trigger_payload = {},
   maxTriggers: maxTriggers = 1000000,
-  authKey: authKey
+  authKey: apikey
 
 }) {
   var db = nano(mgmtdbUrl).db.use(mgmtdbName);
@@ -24,7 +24,7 @@ function main({
   // for pause -> PAUSE
   // for resume -> RESUME
 
-  var triggerId = getTriggerIdentifier(authKey, trigger.namespace, trigger.name);
+  var triggerId = getTriggerIdentifier(apikey, trigger.namespace, trigger.name);
 
   if (lifecycleEvent === 'CREATE') {
     // Insert the new Trigger into the DB
@@ -39,13 +39,14 @@ function main({
         cron: cron,
         payload: trigger_payload,
         maxTriggers: maxTriggers,
-        authKey: authKey
+        apikey: apikey
       };
 
 
       getWorkerId(db)
         .then((worker) => {
           newTrigger.worker = worker;
+          //newTrigger.worker = 'worker2';
           return createTrigger(db, newTrigger, triggerId);
         }).then((res) => {
           resolve(res);

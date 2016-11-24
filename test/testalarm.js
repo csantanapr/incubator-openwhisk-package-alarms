@@ -12,7 +12,7 @@ var lifecycleEvent = process.argv[2] ? process.argv[2] : 'CREATE';
 
 var triggerName = process.argv[3] ? process.argv[3] : 'mytrigger'+uuid();
 if(lifecycleEvent == 'CREATE'){
-  var cron = process.argv[4] ? process.argv[4] : '0 * * * *';
+  var cron = process.argv[4] ? process.argv[4] : '* * * * *';
 }
 var fullTrigerName = `/${WSKNAMESPACE}/${triggerName}`;
 
@@ -20,6 +20,7 @@ var params = {
     mgmtdbUrl: DB_URL,
     lifecycleEvent: lifecycleEvent,
     triggerName: fullTrigerName,
+    cron: cron,
     authKey: WSKAUTH,
     endpoint: WSKHOST
 }

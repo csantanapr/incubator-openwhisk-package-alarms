@@ -11,6 +11,6 @@ triggers.list({include_docs: true},function(err, body) {
     body.rows.forEach(function(row) {
       console.log(row.doc);
     });
-    console.log(`triggers found: ${body.rows.length}`);
+    console.log(`triggers found: ${body.rows.length-1}`);
   }
 });
