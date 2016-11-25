@@ -154,9 +154,7 @@ module.exports = function (
     if (that.triggers[triggerIdentifier]) {
       that.triggers[triggerIdentifier].cronHandle.stop();
       delete that.triggers[triggerIdentifier];
-
       logger.info(tid, method, 'trigger', triggerIdentifier, 'successfully deleted');
-
     }
     else {
       logger.info(tid, method, 'trigger', triggerIdentifier, 'could not be found');
@@ -182,8 +180,6 @@ module.exports = function (
         body.rows.forEach(function (trigger) {
           that.createTrigger(trigger.value);
         });
-
-
       } else {
         logger.error(tid, method, 'could not get latest state from database');
       }
@@ -200,10 +196,7 @@ module.exports = function (
 
     var feed = that.triggerDB.follow({ since: 'now', include_docs: true, query_params: { worker: worker } });
     feed.on('change', (change) => {
-      if (change.deleted) {
-        logger.info(tid, method, 'need to delete the trigger' + change.id);
-        //that.deleteTriggerById(change.id);
-      } else if (that.triggers[change.id]) {
+      if (that.triggers[change.id]) {
         logger.info(tid, method, 'trigger already being handle, lets update if need it');
         if(change.doc.paused){
           logger.info(tid, method, 'trigger being requested to be paused and remove');
