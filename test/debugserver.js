@@ -5,7 +5,7 @@ var app = express();
 app.use(bodyParser.json());
 
 app.get('/', function (req, res) {
-  res.send('Hello World!')
+  res.send('Hello World!');
 });
 app.post('/api/v1/namespaces/:namespace/triggers/:name', function (req, res) {
   console.log(req.url);

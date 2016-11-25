@@ -39,7 +39,8 @@ function main({
         cron: cron,
         payload: trigger_payload,
         maxTriggers: maxTriggers,
-        apikey: apikey
+        apikey: apikey,
+        paused: false
       };
 
 
@@ -62,7 +63,11 @@ function main({
     return new Promise(function (resolve, reject) {
 
       getTrigger(db, triggerId).then((doc) => {
-        return deleteTrigger(db, doc._id, doc._rev);
+        //let's pause trigger this will remove from provider
+        doc.paused = true;
+        return createTrigger(db, doc, triggerId);
+      }).then((doc) => {
+        return deleteTrigger(db, doc.id, doc.rev);
       }).then((res) => {
         resolve(res);
       }).catch((err) => {
@@ -121,7 +126,7 @@ function main({
       db.insert(trigger, triggerId, (err, body) => {
         if (!err) {
           console.log('success ', body);
-          resolve({ response: body });
+          resolve(body);
         } else {
           console.error('error ', err);
           reject(err);

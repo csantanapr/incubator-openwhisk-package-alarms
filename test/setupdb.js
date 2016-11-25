@@ -24,7 +24,7 @@ function create_views(dbname) {
     reduce: '_count'
   };
   var by_worker_filter = function(doc, req){
-    return doc._deleted || doc.worker === req.query.worker;
+    return doc.worker && req.query && req.query.worker && doc.worker === req.query.worker;
   }.toString();
 
   db.get(ddname, function (e, b) {

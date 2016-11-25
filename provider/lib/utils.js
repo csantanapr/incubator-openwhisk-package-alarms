@@ -180,8 +180,6 @@ module.exports = function (
     that.triggerDB.view(ddname, viewname, { reduce: false, key: worker }, function (err, body) {
       if (!err) {
         body.rows.forEach(function (trigger) {
-          console.log('Dump trigger:');
-          console.log(trigger.value);
           that.createTrigger(trigger.value);
         });
 
@@ -202,13 +200,15 @@ module.exports = function (
 
     var feed = that.triggerDB.follow({ since: 'now', include_docs: true, query_params: { worker: worker } });
     feed.on('change', (change) => {
-      logger.info(tid, method, "change: ", change);
       if (change.deleted) {
-        logger.info(tid, method, 'need to delete trigger' + change.id);
-        that.deleteTriggerById(change.id);
+        logger.info(tid, method, 'need to delete the trigger' + change.id);
+        //that.deleteTriggerById(change.id);
       } else if (that.triggers[change.id]) {
         logger.info(tid, method, 'trigger already being handle, lets update if need it');
-        //TODO: implement update a live trigger
+        if(change.doc.paused){
+          logger.info(tid, method, 'trigger being requested to be paused and remove');
+          that.deleteTriggerById(change.id);
+        }
       } else {
         logger.info(tid, method, 'new trigger to handle');
         that.createTrigger(change.doc);
