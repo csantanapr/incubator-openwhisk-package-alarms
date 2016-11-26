@@ -50,7 +50,6 @@ var dbProtocol = process.env.DB_PROTOCOL;
 var dbPrefix = process.env.DB_PREFIX;
 var databaseName = dbPrefix + constants.TRIGGER_DB_SUFFIX;
 var role = process.env.ROLE || "master";
-var slave = process.env.SLAVE;
 
 // Create the Provider Server
 var server = http.createServer(app);
@@ -105,11 +104,12 @@ function init(server) {
     var response = 'pass boolean query parameter state';
     if(typeof state === 'boolean' && state === true){
       providerUtils.active = true;
-      res.send('Provider is active');
+      response='Provider is active';
     } else if (typeof state === 'boolean' && state === false) {
       providerUtils.active = false;
-      res.send('Provider is NOT active');
+      response='Provider is NOT active';
     } 
+    logger.info(tid,'active',response);
     res.send(response);
   });
 
