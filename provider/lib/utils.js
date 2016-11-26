@@ -10,7 +10,8 @@ module.exports = function (
   app,
   retriesBeforeDelete,
   triggerDB,
-  routerHost
+  routerHost,
+  active
 ) {
 
   this.tid = tid;
@@ -19,6 +20,8 @@ module.exports = function (
   this.retriesBeforeDelete = retriesBeforeDelete;
   this.triggerDB = triggerDB;
   this.routerHost = routerHost;
+  this.active = active;
+  this.init = false;
 
   this.logger.info(tid, 'utils', 'received database to store triggers: ' + triggerDB);
 
@@ -50,10 +53,14 @@ module.exports = function (
     if (!(triggerIdentifier in that.triggers)) {
       cronHandle = new CronJob(newTrigger.cron,
         function onTick() {
-          var triggerHandle = that.triggers[triggerIdentifier];
-          if (triggerHandle && triggerHandle.triggersLeft > 0 && triggerHandle.retriesLeft > 0) {
-            that.fireTrigger(newTrigger.namespace, newTrigger.name, newTrigger.payload, newTrigger.apikey);
+          if (that.active) {
+            //This provider is active firing
+            var triggerHandle = that.triggers[triggerIdentifier];
+            if (triggerHandle && triggerHandle.triggersLeft > 0 && triggerHandle.retriesLeft > 0) {
+              that.fireTrigger(newTrigger.namespace, newTrigger.name, newTrigger.payload, newTrigger.apikey);
+            }
           }
+
         }
       );
       cronHandle.start();
@@ -188,12 +195,13 @@ module.exports = function (
     });
     */
     //This is a second approach of getting all db docs and listen following sequence
-    that.triggerDB.changes({since:0, include_docs: true, filter:ddname+'/'+filter, worker:worker},(err, changes)=>{
+    that.triggerDB.changes({ since: 0, include_docs: true, filter: ddname + '/' + filter, worker: worker }, (err, changes) => {
       if (!err) {
         changes.results.forEach(function (change) {
           that.createTrigger(change.doc);
         });
         that.setupFollow(changes.last_seq);
+        that.init = true;
       } else {
         logger.error(tid, method, 'could not get latest state from database');
       }
@@ -213,7 +221,7 @@ module.exports = function (
     feed.on('change', (change) => {
       if (that.triggers[change.id]) {
         logger.info(tid, method, 'trigger already being handle, lets update if need it');
-        if(change.doc.paused){
+        if (change.doc.paused) {
           logger.info(tid, method, 'trigger being requested to be paused and remove');
           that.deleteTriggerById(change.id);
         }

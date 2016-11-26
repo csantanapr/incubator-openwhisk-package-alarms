@@ -49,6 +49,8 @@ var dbPort = process.env.DB_PORT;
 var dbProtocol = process.env.DB_PROTOCOL;
 var dbPrefix = process.env.DB_PREFIX;
 var databaseName = dbPrefix + constants.TRIGGER_DB_SUFFIX;
+var role = process.env.ROLE || "master";
+var slave = process.env.SLAVE;
 
 // Create the Provider Server
 var server = http.createServer(app);
@@ -59,6 +61,7 @@ server.listen(app.get('port'), function () {
 
 // Initialize the Provider Server
 function init(server) {
+  var bootActive=false;
 
   if (server !== null) {
     var address = server.address();
@@ -73,7 +76,21 @@ function init(server) {
 
   logger.info(tid, 'init', 'trigger storage database details: ', nanoDb);
 
-  var providerUtils = new ProviderUtils(tid, logger, app, retriesBeforeDelete, nanoDb, routerHost);
+  if(role === "master"){
+    //single provider mode
+    logger.info(tid, 'init','Booting as master no slave involed');
+    bootActive = true;
+  } else if (role === "master_slave"){
+    //dual provider this is master
+    logger.info(tid, 'init','Booting as master there is a slave involed');
+    bootActive = false;
+  } else {
+    //dual provider this is slave
+    logger.info(tid, 'init','Booting as slave there is a master involved');
+    bootActive = false;
+  }
+  var providerUtils = new ProviderUtils(tid, logger, app, retriesBeforeDelete, nanoDb, routerHost, bootActive);
+
   var providerRAS = new ProviderRAS(tid, logger, providerUtils);
   var providerHealth = new ProviderHealth(tid, logger, providerUtils);
 
@@ -82,6 +99,19 @@ function init(server) {
 
   // Health Endpoint
   app.get(providerHealth.endPoint, providerHealth.health);
+
+  app.get("/active",(req,res)=>{
+    var state = JSON.parse(req.query.state);
+    var response = 'pass boolean query parameter state';
+    if(typeof state === 'boolean' && state === true){
+      providerUtils.active = true;
+      res.send('Provider is active');
+    } else if (typeof state === 'boolean' && state === false) {
+      providerUtils.active = false;
+      res.send('Provider is NOT active');
+    } 
+    res.send(response);
+  });
 
   providerUtils.initAllTriggers();
 
