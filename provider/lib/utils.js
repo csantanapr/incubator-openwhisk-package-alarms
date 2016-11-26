@@ -169,11 +169,13 @@ module.exports = function (
   this.initAllTriggers = function () {
     var ddname = 'triggers';
     var viewname = 'by_worker';
+    var filter = 'by_worker';
     var worker = process.env.WORKER_ID;
 
     var method = 'initAllTriggers';
     logger.info(tid, method, 'resetting system from last state');
 
+    /* 
     that.setupFollow();
     that.triggerDB.view(ddname, viewname, { reduce: false, key: worker }, function (err, body) {
       if (!err) {
@@ -184,17 +186,30 @@ module.exports = function (
         logger.error(tid, method, 'could not get latest state from database');
       }
     });
+    */
+    //This is a second approach of getting all db docs and listen following sequence
+    that.triggerDB.changes({since:0, include_docs: true, filter:ddname+'/'+filter, worker:worker},(err, changes)=>{
+      if (!err) {
+        changes.results.forEach(function (change) {
+          that.createTrigger(change.doc);
+        });
+        that.setupFollow(changes.last_seq);
+      } else {
+        logger.error(tid, method, 'could not get latest state from database');
+      }
+    });
 
   };
 
 
-  this.setupFollow = function setupFollow() {
+  this.setupFollow = function setupFollow(seq) {
     var worker = process.env.WORKER_ID;
     var ddname = 'triggers';
     var filter = 'by_worker';
     var method = 'setupFollow';
+    var since = seq || 'now';
 
-    var feed = that.triggerDB.follow({ since: 'now', include_docs: true, query_params: { worker: worker } });
+    var feed = that.triggerDB.follow({ since: since, include_docs: true, query_params: { worker: worker } });
     feed.on('change', (change) => {
       if (that.triggers[change.id]) {
         logger.info(tid, method, 'trigger already being handle, lets update if need it');
