@@ -47,18 +47,18 @@ export WSK_CONFIG_FILE= # override local property file to avoid namespace clashe
 
 echo Installing Alarms package.
 
-$WSK_CLI -i --apihost "$EDGEHOST" package update --auth "$AUTH" --shared yes alarms \
+$WSK_CLI -i --apihost "$EDGEHOST" package update --auth "$AUTH" --shared yes alarm2 \
      -a description 'Alarms and periodic utility' \
      -a parameters '[ {"name":"cron", "required":true}, {"name":"trigger_payload", "required":false} ]' \
      -p apihost "$APIHOST" \
      -p cron '' \
      -p trigger_payload ''
 
-$WSK_CLI -i --apihost "$EDGEHOST" action update --kind nodejs:6 --auth "$AUTH" alarms/alarm "$PACKAGE_HOME/action/alarm.js" \
+$WSK_CLI -i --apihost "$EDGEHOST" action update --kind nodejs:6 --auth "$AUTH" alarm2/alarm "$PACKAGE_HOME/action/alarm.js" \
      -a description 'Fire trigger when alarm occurs' \
      -a feed true
 
-$WSK_CLI -i --apihost "$EDGEHOST" package update --auth "$AUTH" --shared no alarmsWeb \
+$WSK_CLI -i --apihost "$EDGEHOST" package update --auth "$AUTH" --shared no alarmsWeb2 \
      -p DB_URL "$DB_URL" \
      -p DB_NAME "$DB_NAME" \
      -p apihost "$APIHOST"
@@ -74,7 +74,7 @@ fi
 
 zip -r alarmWebAction.zip package.json alarmWebAction.js node_modules
 
-$WSK_CLI -i --apihost "$EDGEHOST" action update --kind nodejs:6 --auth "$AUTH" alarmsWeb/alarmWebAction "$PACKAGE_HOME/action/alarmWebAction.zip" \
+$WSK_CLI -i --apihost "$EDGEHOST" action update --kind nodejs:6 --auth "$AUTH" alarmsWeb2/alarmWebAction "$PACKAGE_HOME/action/alarmWebAction.zip" \
     -a description 'Create/Delete a trigger in alarms provider Database' \
     --web true
 

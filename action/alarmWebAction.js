@@ -47,13 +47,16 @@ function main(params) {
                 'dateChanged': new Date().toISOString(),
             }
         };
-
+        console.log('DBEUG: going to create trigger');
         return new Promise(function (resolve, reject) {
+            console.log('DBEUG: going to verifyTriggerAuth');
             verifyTriggerAuth(triggerURL, params.authKey, false)
             .then(() => {
+                console.log('DBEUG: going to createTrigger');
                  return createTrigger(db, triggerID, newTrigger);
             })
             .then(() => {
+                console.log('DBEUG: dude Im good now to return success' );
                 resolve({
                     statusCode: 200,
                     headers: {'Content-Type': 'application/json'},
@@ -61,6 +64,7 @@ function main(params) {
                 });
             })
             .catch(err => {
+                console.error('DBEUG: dude what the hell?' );
                 reject(err);
             });
         });
@@ -69,6 +73,7 @@ function main(params) {
     else if (params.__ow_method === "delete") {
 
         return new Promise(function (resolve, reject) {
+            
             verifyTriggerAuth(triggerURL, params.authKey, true)
             .then(() => {
                 return updateTrigger(db, triggerID, 0);
